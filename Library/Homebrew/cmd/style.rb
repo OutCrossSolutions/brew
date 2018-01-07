@@ -70,7 +70,6 @@ module Homebrew
   def check_style_impl(files, output_type, options = {})
     fix = options[:fix]
 
-    Homebrew.install_gem_setup_path! "parser", HOMEBREW_RUBOCOP_PARSER_VERSION, "ruby-parse"
     Homebrew.install_gem_setup_path! "rubocop", HOMEBREW_RUBOCOP_VERSION
     require "rubocop"
     require_relative "../rubocops"
@@ -114,17 +113,21 @@ module Homebrew
       args += files
     end
 
-    cache_env = { "XDG_CACHE_HOME" => "#{HOMEBREW_CACHE}/style" }
+    env = {
+      "XDG_CACHE_HOME" => "#{HOMEBREW_CACHE}/style",
+      # hide parser gem Ruby version warnings (and all other Ruby warnings)
+      "RUBYOPT" => "-W0",
+    }
 
     case output_type
     when :print
       args << "--debug" if ARGV.debug?
       args << "--display-cop-names" if ARGV.include? "--display-cop-names"
       args << "--format" << "simple" if files
-      system(cache_env, "rubocop", "_#{HOMEBREW_RUBOCOP_VERSION}_", *args)
+      system(env, "rubocop", "_#{HOMEBREW_RUBOCOP_VERSION}_", *args)
       !$CHILD_STATUS.success?
     when :json
-      json, _, status = Open3.capture3(cache_env, "rubocop", "_#{HOMEBREW_RUBOCOP_VERSION}_", "--format", "json", *args)
+      json, _, status = Open3.capture3(env, "rubocop", "_#{HOMEBREW_RUBOCOP_VERSION}_", "--format", "json", *args)
       # exit status of 1 just means violations were found; other numbers mean
       # execution errors.
       # exitstatus can also be nil if RuboCop process crashes, e.g. due to
